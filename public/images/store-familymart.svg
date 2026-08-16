@@ -1,4 +1,7 @@
-<svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="56" height="56" rx="12" fill="#FFF8F0"/>
-  <text x="28" y="36" text-anchor="middle" font-size="24">🏪</text>
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="16" fill="#FFFFFF"/>
+  <rect x="10" y="25" width="100" height="35" rx="4" fill="#00A040"/>
+  <rect x="10" y="60" width="100" height="35" rx="4" fill="#0068B7"/>
+  <text x="60" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="white">Family</text>
+  <text x="60" y="83" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="white">Mart</text>
 </svg>
