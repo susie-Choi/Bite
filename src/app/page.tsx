@@ -120,7 +120,7 @@ export default function HomePage() {
 
       {/* Footer note */}
       <p className="mt-auto pt-8 text-center text-xs text-text-tertiary">
-        오사카 난바 지역 매장 기준 · MVP 테스트 버전
+        team 118
       </p>
     </div>
   );

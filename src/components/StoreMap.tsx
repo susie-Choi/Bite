@@ -1,3 +1,6 @@
+"use client";
+
+import { APIProvider, Map, AdvancedMarker } from "@vis.gl/react-google-maps";
 import { Store, StoreId } from "@/types";
 
 interface StoreMapProps {
@@ -5,73 +8,79 @@ interface StoreMapProps {
   onStoreSelect: (store: Store) => void;
 }
 
-const markerPositions: Record<StoreId, { left: string; top: string }> = {
-  life_namba: { left: "29%", top: "61%" },
-  lawson_namba: { left: "68%", top: "39%" },
+// 난바 매장의 실제 좌표
+const storeCoordinates: Record<StoreId, { lat: number; lng: number }> = {
+  life_namba: { lat: 34.6595, lng: 135.5013 }, // Central Square LIFE Namba
+  lawson_namba: { lat: 34.6612, lng: 135.5018 }, // Lawson Naniwa Minatomachi
 };
 
-export default function StoreMap({ stores, onStoreSelect }: StoreMapProps) {
+// 난바 중심 좌표
+const NAMBA_CENTER = { lat: 34.6603, lng: 135.5016 };
+
+function MapContent({ stores, onStoreSelect }: StoreMapProps) {
   return (
-    <div>
-      <div
-        className="relative h-52 overflow-hidden rounded-3xl border border-stone-200 bg-[#f4f1ea] shadow-sm"
-        role="group"
-        aria-label="오사카 난바 추천 지원 매장 지도"
-      >
-        <svg
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full"
-          viewBox="0 0 390 208"
-          preserveAspectRatio="none"
-        >
-          <rect width="390" height="208" fill="#F4F1EA" />
-          <path d="M0 39H390M0 164H390" stroke="#E3DED3" strokeWidth="10" />
-          <path d="M72 0V208M307 0V208" stroke="#E3DED3" strokeWidth="12" />
-          <path d="M0 97L390 121" stroke="#FFFFFF" strokeWidth="18" />
-          <path d="M165 0L192 208" stroke="#FFFFFF" strokeWidth="15" />
-          <path d="M0 97L390 121" stroke="#D6D0C5" strokeWidth="1.5" strokeDasharray="7 6" />
-          <path d="M165 0L192 208" stroke="#D6D0C5" strokeWidth="1.5" strokeDasharray="7 6" />
-          <rect x="218" y="26" width="55" height="31" rx="5" fill="#E5E7DF" />
-          <rect x="91" y="130" width="47" height="28" rx="5" fill="#E5E7DF" />
-          <rect x="245" y="145" width="72" height="31" rx="5" fill="#E5E7DF" />
-          <path d="M344 0V208" stroke="#BBD9E8" strokeWidth="35" opacity=".8" />
-          <text x="16" y="25" fill="#78716C" fontSize="11" fontWeight="600">오사카 · 난바</text>
-          <text x="319" y="195" fill="#6F9EB7" fontSize="9">도톤보리 방향</text>
-        </svg>
+    <Map
+      defaultCenter={NAMBA_CENTER}
+      defaultZoom={16}
+      gestureHandling="cooperative"
+      disableDefaultUI={true}
+      zoomControl={true}
+      mapId="namba-store-map"
+      className="h-full w-full rounded-2xl"
+    >
+      {stores.map((store) => {
+        const position = storeCoordinates[store.id];
+        const isSupermarket = store.type === "supermarket";
 
-        <div className="absolute left-3 top-9 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-medium text-text-secondary shadow-sm backdrop-blur">
-          추천 정보 제공 매장 2곳
-        </div>
-
-        {stores.map((store) => {
-          const position = markerPositions[store.id];
-          const isSupermarket = store.type === "supermarket";
-
-          return (
-            <button
-              key={store.id}
-              type="button"
-              onClick={() => onStoreSelect(store)}
-              className="group absolute -translate-x-1/2 -translate-y-full focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-200"
-              style={position}
-              aria-label={`${store.nameKo}, ${store.typeLabel} 선택`}
-            >
-              <span
-                className={`flex h-11 w-11 items-center justify-center rounded-full border-4 border-white text-lg text-white shadow-lg transition-transform group-active:scale-90 ${
+        return (
+          <AdvancedMarker
+            key={store.id}
+            position={position}
+            onClick={() => onStoreSelect(store)}
+            title={`${store.nameKo} (${store.typeLabel})`}
+          >
+            <div className="flex flex-col items-center">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-white text-sm font-bold text-white shadow-lg ${
                   isSupermarket ? "bg-blue-600" : "bg-red-500"
                 }`}
-                aria-hidden="true"
               >
                 {isSupermarket ? "M" : "C"}
-              </span>
-              <span className="absolute left-1/2 top-12 w-max max-w-32 -translate-x-1/2 rounded-lg bg-white px-2 py-1 text-[10px] font-semibold text-text shadow-md">
+              </div>
+              <div className="mt-1 whitespace-nowrap rounded-md bg-white px-2 py-0.5 text-[10px] font-semibold text-text shadow-md">
                 {store.nameKo}
-              </span>
-            </button>
-          );
-        })}
+              </div>
+            </div>
+          </AdvancedMarker>
+        );
+      })}
+    </Map>
+  );
+}
+
+export default function StoreMap({ stores, onStoreSelect }: StoreMapProps) {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  // API 키가 없으면 폴백 UI
+  if (!apiKey) {
+    return (
+      <div className="relative flex h-52 items-center justify-center overflow-hidden rounded-2xl bg-surface-subtle">
+        <p className="text-sm text-text-tertiary">
+          지도를 표시하려면 Google Maps API 키가 필요합니다.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="h-56 overflow-hidden rounded-2xl border border-stone-200 shadow-sm">
+        <APIProvider apiKey={apiKey}>
+          <MapContent stores={stores} onStoreSelect={onStoreSelect} />
+        </APIProvider>
       </div>
 
+      {/* 범례 */}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 px-1 text-xs text-text-secondary">
         <span className="flex items-center gap-1.5">
           <span className="h-2.5 w-2.5 rounded-full bg-blue-600" aria-hidden="true" />
@@ -81,7 +90,7 @@ export default function StoreMap({ stores, onStoreSelect }: StoreMapProps) {
           <span className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden="true" />
           편의점
         </span>
-        <span className="ml-auto text-text-tertiary">아이콘을 눌러 선택</span>
+        <span className="ml-auto text-text-tertiary">마커를 눌러 선택</span>
       </div>
     </div>
   );
