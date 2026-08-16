@@ -8,37 +8,26 @@ import { Store } from "@/types";
 import { trackEvent, markSessionStart } from "@/lib/analytics";
 import StoreMap from "@/components/StoreMap";
 
-function StoreCard({ store, onClick }: { store: Store; onClick: () => void }) {
+function StoreGridItem({ store, onClick }: { store: Store; onClick: () => void }) {
+  const isSupermarket = store.type === "supermarket";
+
   return (
     <button
       onClick={onClick}
-      className="card flex w-full items-center gap-4 text-left"
+      className="flex flex-col items-center gap-1.5 rounded-2xl bg-surface-subtle p-3 text-center transition-all active:scale-95 active:bg-primary-50"
       aria-label={`${store.nameKo} 선택`}
     >
-      <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-surface-subtle">
-        <span className="text-2xl" role="img" aria-hidden="true">
-          {store.type === "supermarket" ? "🏬" : "🏪"}
-        </span>
-      </div>
-      <div className="flex-1">
-        <p className="font-semibold text-text">{store.nameKo}</p>
-        <p className="text-sm text-text-secondary">{store.typeLabel}</p>
-        <p className="mt-0.5 text-xs text-text-tertiary">{store.address}</p>
-      </div>
-      <svg
-        className="h-5 w-5 text-text-tertiary"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={2}
-        stroke="currentColor"
-        aria-hidden="true"
+      <div
+        className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${
+          isSupermarket ? "bg-blue-600" : "bg-red-500"
+        }`}
       >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M8.25 4.5l7.5 7.5-7.5 7.5"
-        />
-      </svg>
+        {isSupermarket ? "M" : "C"}
+      </div>
+      <p className="text-xs font-semibold text-text leading-tight">
+        {store.nameKo.replace("세븐일레븐", "세븐").replace("패밀리마트", "패밀마")}
+      </p>
+      <p className="text-[10px] text-text-tertiary">{store.typeLabel}</p>
     </button>
   );
 }
@@ -62,7 +51,7 @@ export default function HomePage() {
   return (
     <div className="page-container flex flex-col">
       {/* Hero */}
-      <div className="relative -mx-5 h-56 overflow-hidden">
+      <div className="relative -mx-5 h-48 overflow-hidden">
         <Image
           src="/images/meal.jpeg"
           alt="여행지에서 즐기는 간편한 한 끼"
@@ -74,51 +63,34 @@ export default function HomePage() {
       </div>
 
       {/* Header */}
-      <div className="mt-4">
+      <div className="mt-3">
         <h1 className="text-2xl font-bold text-text">여행한끼</h1>
-        <p className="mt-2 text-base leading-relaxed text-text-secondary">
+        <p className="mt-1.5 text-base leading-relaxed text-text-secondary">
           여행지 마트에서, 오늘 뭐 먹지?
-        </p>
-        <p className="mt-1 text-sm text-text-tertiary">
-          지금 있는 매장에서 실패 없는 한 끼를 골라드려요.
         </p>
       </div>
 
-      {/* Store Selection */}
-      <section className="mt-8" aria-labelledby="store-heading">
-        <h2 id="store-heading" className="section-title">
-          난바에서 지원하는 매장이에요
+      {/* Map */}
+      <section className="mt-6" aria-labelledby="store-heading">
+        <h2 id="store-heading" className="sr-only">
+          매장 선택
         </h2>
-        <p className="mt-1 text-sm text-text-secondary">
-          지도 또는 목록에서 현재 방문한 매장을 선택하세요.
-        </p>
 
-        <div className="mt-4">
-          <StoreMap stores={stores} onStoreSelect={handleStoreSelect} />
-        </div>
+        <StoreMap stores={stores} onStoreSelect={handleStoreSelect} />
 
-        <div className="mt-5 flex items-center gap-3" aria-hidden="true">
-          <span className="h-px flex-1 bg-stone-200" />
-          <span className="text-xs text-text-tertiary">매장 목록</span>
-          <span className="h-px flex-1 bg-stone-200" />
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3">
+        {/* Store Grid - 3 columns */}
+        <div className="mt-4 grid grid-cols-3 gap-2">
           {stores.map((store) => (
-            <StoreCard
+            <StoreGridItem
               key={store.id}
               store={store}
               onClick={() => handleStoreSelect(store)}
             />
           ))}
         </div>
-
-        <p className="mt-4 rounded-xl bg-blue-50 px-3 py-2.5 text-xs leading-relaxed text-blue-700">
-          현재 위치나 실시간 재고를 표시하는 지도가 아니며, 여행한끼가 추천 정보를 제공하는 MVP 테스트 매장입니다.
-        </p>
       </section>
 
-      {/* Footer note */}
+      {/* Footer */}
       <p className="mt-auto pt-8 text-center text-xs text-text-tertiary">
         team 118
       </p>

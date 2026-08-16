@@ -1,5 +1,14 @@
 // ─── Store ───────────────────────────────────────────────
-export type StoreId = "life_namba" | "lawson_namba";
+export type StoreId =
+  | "life_namba"
+  | "lawson_namba"
+  | "seven_shinsaibashi"
+  | "familymart_dotonbori"
+  | "life_tennoji"
+  | "lawson_tsutenkaku"
+  | "seven_umeda"
+  | "life_shinsekai";
+
 export type StoreType = "supermarket" | "convenience";
 
 export interface Store {
@@ -10,6 +19,8 @@ export interface Store {
   typeLabel: string;
   address: string;
   image: string;
+  lat: number;
+  lng: number;
 }
 
 // ─── Situation ───────────────────────────────────────────
