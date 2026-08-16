@@ -6,6 +6,7 @@ import Image from "next/image";
 import { stores } from "@/data/stores";
 import { Store } from "@/types";
 import { trackEvent, markSessionStart } from "@/lib/analytics";
+import StoreMap from "@/components/StoreMap";
 
 function StoreCard({ store, onClick }: { store: Store; onClick: () => void }) {
   return (
@@ -86,8 +87,22 @@ export default function HomePage() {
       {/* Store Selection */}
       <section className="mt-8" aria-labelledby="store-heading">
         <h2 id="store-heading" className="section-title">
-          어디에 있나요?
+          난바에서 지원하는 매장이에요
         </h2>
+        <p className="mt-1 text-sm text-text-secondary">
+          지도 또는 목록에서 현재 방문한 매장을 선택하세요.
+        </p>
+
+        <div className="mt-4">
+          <StoreMap stores={stores} onStoreSelect={handleStoreSelect} />
+        </div>
+
+        <div className="mt-5 flex items-center gap-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-stone-200" />
+          <span className="text-xs text-text-tertiary">매장 목록</span>
+          <span className="h-px flex-1 bg-stone-200" />
+        </div>
+
         <div className="mt-4 flex flex-col gap-3">
           {stores.map((store) => (
             <StoreCard
@@ -97,6 +112,10 @@ export default function HomePage() {
             />
           ))}
         </div>
+
+        <p className="mt-4 rounded-xl bg-blue-50 px-3 py-2.5 text-xs leading-relaxed text-blue-700">
+          현재 위치나 실시간 재고를 표시하는 지도가 아니며, 여행한끼가 추천 정보를 제공하는 MVP 테스트 매장입니다.
+        </p>
       </section>
 
       {/* Footer note */}
