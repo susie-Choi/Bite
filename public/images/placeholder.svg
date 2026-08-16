@@ -1,0 +1,5 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="200" height="200" fill="#F5F5F4"/>
+  <path d="M100 70C94.477 70 90 74.477 90 80V90H80C74.477 90 70 94.477 70 100V120C70 125.523 74.477 130 80 130H120C125.523 130 130 125.523 130 120V100C130 94.477 125.523 90 120 90H110V80C110 74.477 105.523 70 100 70Z" fill="#D6D3D1"/>
+  <text x="100" y="155" text-anchor="middle" font-size="12" fill="#A8A29E" font-family="sans-serif">이미지 준비중</text>
+</svg>
