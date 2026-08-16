@@ -9,20 +9,20 @@ import { trackEvent, markSessionStart } from "@/lib/analytics";
 import StoreMap from "@/components/StoreMap";
 
 function StoreGridItem({ store, onClick }: { store: Store; onClick: () => void }) {
-  const isSupermarket = store.type === "supermarket";
-
   return (
     <button
       onClick={onClick}
       className="flex flex-col items-center gap-1.5 rounded-2xl bg-surface-subtle p-3 text-center transition-all active:scale-95 active:bg-primary-50"
       aria-label={`${store.nameKo} 선택`}
     >
-      <div
-        className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${
-          isSupermarket ? "bg-blue-600" : "bg-red-500"
-        }`}
-      >
-        {isSupermarket ? "M" : "C"}
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1">
+        <Image
+          src={store.image}
+          alt={store.nameKo}
+          width={36}
+          height={36}
+          className="object-contain"
+        />
       </div>
       <p className="text-xs font-semibold text-text leading-tight">
         {store.nameKo.replace("세븐일레븐", "세븐").replace("패밀리마트", "패밀마")}
