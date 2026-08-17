@@ -225,7 +225,11 @@ function ProductDetailContent() {
         <div className="mt-6 space-y-3 rounded-2xl bg-surface-subtle p-4">
           <DetailRow
             label="맛 특징"
-            value={`${product.tasteSummary} (${TASTE_BASIS_LABEL[product.tasteBasis]})`}
+            value={product.tasteSummary}
+          />
+          <DetailRow
+            label="설명 근거"
+            value={TASTE_BASIS_LABEL[product.tasteBasis]}
           />
           <DetailRow
             label="포만감"
