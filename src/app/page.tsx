@@ -9,13 +9,14 @@ import { Store } from "@/types";
 import { trackEvent, markSessionStart } from "@/lib/analytics";
 import StoreMap from "@/components/StoreMap";
 
-/** 매장별 verified 상품 개수. 0개인 매장은 추천을 제공할 수 없으므로 UI에서 준비중으로 표시한다. */
-const verifiedCountByStore = products.reduce<Record<string, number>>((acc, p) => {
-  if (p.verificationStatus === "verified") {
-    acc[p.storeId] = (acc[p.storeId] || 0) + 1;
-  }
-  return acc;
-}, {});
+/** 검증된 상품을 하나 이상 보유해 실제 추천을 제공할 수 있는 매장만 홈에 노출한다. */
+const availableStoreIds = new Set(
+  products
+    .filter((product) => product.verificationStatus === "verified")
+    .map((product) => product.storeId)
+);
+
+const availableStores = stores.filter((store) => availableStoreIds.has(store.id));
 
 function StoreGridItem({
   store,
@@ -24,20 +25,11 @@ function StoreGridItem({
   store: Store;
   onClick: () => void;
 }) {
-  const isReady = (verifiedCountByStore[store.id] || 0) > 0;
-
   return (
     <button
-      onClick={isReady ? onClick : undefined}
-      disabled={!isReady}
-      className={`relative flex flex-col items-center gap-1.5 rounded-2xl bg-surface-subtle p-3 text-center transition-all ${
-        isReady
-          ? "active:scale-95 active:bg-primary-50"
-          : "cursor-not-allowed opacity-50"
-      }`}
-      aria-label={
-        isReady ? `${store.nameKo} 선택` : `${store.nameKo} 준비 중`
-      }
+      onClick={onClick}
+      className="relative flex flex-col items-center gap-1.5 rounded-2xl bg-surface-subtle p-3 text-center transition-all active:scale-95 active:bg-primary-50"
+      aria-label={`${store.nameKo} 선택`}
     >
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1">
         <Image
@@ -48,12 +40,10 @@ function StoreGridItem({
           className="object-contain"
         />
       </div>
-      <p className="text-xs font-semibold text-text leading-tight">
+      <p className="text-xs font-semibold leading-tight text-text">
         {store.nameKo.replace("세븐일레븐", "세븐").replace("패밀리마트", "패밀마")}
       </p>
-      <p className="text-[10px] text-text-tertiary">
-        {isReady ? store.typeLabel : "준비 중"}
-      </p>
+      <p className="text-[10px] text-text-tertiary">{store.typeLabel}</p>
     </button>
   );
 }
@@ -102,11 +92,11 @@ export default function HomePage() {
           매장 선택
         </h2>
 
-        <StoreMap stores={stores} onStoreSelect={handleStoreSelect} />
+        <StoreMap stores={availableStores} onStoreSelect={handleStoreSelect} />
 
         {/* Store Grid - 3 columns */}
         <div className="mt-4 grid grid-cols-3 gap-2">
-          {stores.map((store) => (
+          {availableStores.map((store) => (
             <StoreGridItem
               key={store.id}
               store={store}
@@ -114,9 +104,6 @@ export default function HomePage() {
             />
           ))}
         </div>
-        <p className="mt-3 text-center text-xs text-text-tertiary">
-          &ldquo;준비 중&rdquo; 매장은 검증된 상품 데이터를 아직 확보하지 못해 추천을 제공하지 않습니다.
-        </p>
       </section>
 
       {/* Footer */}
