@@ -78,6 +78,15 @@ function calculateScore(
 
 /**
  * 추천 상품 리스트를 반환합니다.
+ *
+ * 정렬 규칙 (결정적, 랜덤 요소 없음):
+ *   1) score 내림차순
+ *   2) situations에 situationId를 포함하는 상품 우선 (상황 적합도)
+ *   3) 가격 낮은 순 (가격 정보가 없으면 뒤로)
+ *   4) product.id 오름차순 (완전한 동점 시 항상 같은 순서 보장)
+ *
+ * rank가 세션마다 달라지면 recommendation_card_click의 rank 파라미터로
+ * 노출 위치별 클릭률을 비교할 수 없으므로, 동일 입력이면 항상 동일한 순서를 반환해야 한다.
  */
 export function getRecommendations(
   storeId: StoreId,
@@ -103,9 +112,17 @@ export function getRecommendations(
       return true; // microwave/hot_water 선택 시에는 모든 상품 포함 (감점은 했음)
     })
     .sort((a, b) => {
-      // 점수 내림차순, 동점 시 랜덤
       if (b.score !== a.score) return b.score - a.score;
-      return Math.random() - 0.5;
+
+      const aMatches = a.product.situations.includes(situationId);
+      const bMatches = b.product.situations.includes(situationId);
+      if (aMatches !== bMatches) return aMatches ? -1 : 1;
+
+      const aPrice = a.product.priceYen ?? Number.POSITIVE_INFINITY;
+      const bPrice = b.product.priceYen ?? Number.POSITIVE_INFINITY;
+      if (aPrice !== bPrice) return aPrice - bPrice;
+
+      return a.product.id.localeCompare(b.product.id);
     });
 
   return scored.map(({ product, score }, index) => ({
