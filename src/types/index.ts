@@ -48,6 +48,36 @@ export interface FilterOptions {
   cooking: CookingMethod | null;
 }
 
+// ─── Trip / Choice History ────────────────────────────────
+export type DestinationId = "osaka_namba";
+
+export interface Trip {
+  id: string;
+  destinationId: DestinationId;
+  destinationName: string;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TripInput {
+  id?: string;
+  destinationId: DestinationId;
+  destinationName: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface ChoiceHistory {
+  id: string;
+  tripId: string;
+  productId: string;
+  storeId: StoreId;
+  situationId: SituationId;
+  selectedAt: string;
+}
+
 // ─── Product Trust / Provenance ───────────────────────────
 /**
  * 이 상품 정보가 실제로 어느 범위까지 확인되었는지를 나타낸다.
@@ -159,7 +189,13 @@ export type AnalyticsEvent =
   | "share_complete"
   | "web_vital"
   | "app_error"
-  | "error_retry";
+  | "error_retry"
+  | "trip_setup_view"
+  | "trip_create"
+  | "trip_edit"
+  | "trip_skip"
+  | "trip_history_view"
+  | "trip_history_product_click";
 
 export type AnalyticsParams = Record<
   string,

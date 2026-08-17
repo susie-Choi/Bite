@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, useParams } from "next/navigation";
 import Image from "next/image";
 import { trackEvent, getDecisionTimeMs } from "@/lib/analytics";
 import { getCompanionProducts, getProductById } from "@/lib/recommendation";
+import { getCurrentTrip, recordChoiceForCurrentTrip } from "@/lib/tripStorage";
 import {
   getAvailabilityLabel,
   getAvailabilityTone,
@@ -90,11 +91,19 @@ function ProductDetailContent() {
     });
     setShowChoice(true);
 
+    const currentTrip = getCurrentTrip();
+    const savedChoice = recordChoiceForCurrentTrip({
+      productId: product.id,
+      storeId,
+      situationId,
+    });
     const decisionTime = getDecisionTimeMs();
     trackEvent("choice_confirm", {
       product_id: product.id,
       decision_time_ms: decisionTime || 0,
       rank,
+      trip_attached: Boolean(savedChoice),
+      destination_id: currentTrip?.destinationId,
     });
 
     router.push(

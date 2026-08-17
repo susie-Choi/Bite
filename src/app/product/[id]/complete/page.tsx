@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { trackEvent } from "@/lib/analytics";
 import { getProductById } from "@/lib/recommendation";
+import { getCurrentTrip } from "@/lib/tripStorage";
 import { StoreId, SituationId } from "@/types";
 
 function CompleteContent() {
@@ -19,8 +20,10 @@ function CompleteContent() {
   const [showFakeDoor, setShowFakeDoor] = useState(false);
   const [npsScore, setNpsScore] = useState<number | null>(null);
   const [shareMessage, setShareMessage] = useState("");
+  const [hasCurrentTrip, setHasCurrentTrip] = useState(false);
 
   useEffect(() => {
+    setHasCurrentTrip(Boolean(getCurrentTrip()));
     trackEvent("choice_complete_view", {
       product_id: productId,
       store_id: storeId,
@@ -242,6 +245,14 @@ function CompleteContent() {
 
       {/* Actions */}
       <div className="mt-8 flex w-full flex-col gap-3">
+        {hasCurrentTrip && (
+          <button
+            onClick={() => router.push("/my-trip")}
+            className="btn-primary"
+          >
+            내 여행에서 선택 내역 보기
+          </button>
+        )}
         <button
           onClick={() => router.push(`/recommendations?store=${storeId}&situation=${situationId}`)}
           className="btn-secondary"

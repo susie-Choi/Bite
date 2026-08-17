@@ -5,10 +5,17 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { stores } from "@/data/stores";
 import { products } from "@/data/products";
-import { Store } from "@/types";
+import { Store, Trip } from "@/types";
 import { trackEvent, markSessionStart, trackVisit } from "@/lib/analytics";
 import { formatDistance, GeoPoint, getDistanceMeters } from "@/lib/geo";
+import {
+  getCurrentTrip,
+  skipTripSetupForSession,
+  wasTripSetupSkippedThisSession,
+} from "@/lib/tripStorage";
+import CurrentTripCard from "@/components/CurrentTripCard";
 import StoreMap from "@/components/StoreMap";
+import TripSetupSheet from "@/components/TripSetupSheet";
 
 /** 검증된 상품을 하나 이상 보유해 실제 추천을 제공할 수 있는 매장만 홈에 노출한다. */
 const availableStoreIds = new Set(
@@ -113,11 +120,20 @@ export default function HomePage() {
   const [userLocation, setUserLocation] = useState<GeoPoint | null>(null);
   const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
   const [locationMessage, setLocationMessage] = useState("");
+  const [currentTrip, setCurrentTrip] = useState<Trip | null>(null);
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [tripSetupOpen, setTripSetupOpen] = useState(false);
 
   useEffect(() => {
     markSessionStart();
     trackVisit();
     trackEvent("home_view", { source: "direct" });
+
+    const storedTrip = getCurrentTrip();
+    setCurrentTrip(storedTrip);
+    if (!storedTrip && !wasTripSetupSkippedThisSession()) {
+      setTripSetupOpen(true);
+    }
   }, []);
 
   const storesWithDistance = useMemo(() => {
@@ -142,6 +158,26 @@ export default function HomePage() {
       source,
     });
     router.push(`/situation?store=${store.id}`);
+  };
+
+  const openTripSetup = () => {
+    setEditingTrip(null);
+    setTripSetupOpen(true);
+  };
+
+  const openTripEdit = () => {
+    if (!currentTrip) return;
+    setEditingTrip(currentTrip);
+    setTripSetupOpen(true);
+  };
+
+  const dismissTripSetup = () => {
+    if (!editingTrip && !currentTrip) {
+      skipTripSetupForSession();
+      trackEvent("trip_skip", { source: "home" });
+    }
+    setTripSetupOpen(false);
+    setEditingTrip(null);
   };
 
   const handleNearbySearch = () => {
@@ -227,6 +263,13 @@ export default function HomePage() {
         </p>
       </div>
 
+      <CurrentTripCard
+        trip={currentTrip}
+        onSetup={openTripSetup}
+        onEdit={openTripEdit}
+        onHistory={() => router.push("/my-trip")}
+      />
+
       {/* Map */}
       <section className="mt-6" aria-labelledby="store-heading">
         <h2 id="store-heading" className="sr-only">
@@ -296,6 +339,17 @@ export default function HomePage() {
       <p className="mt-auto pt-8 text-center text-xs text-text-tertiary">
         team 118
       </p>
+
+      <TripSetupSheet
+        open={tripSetupOpen}
+        initialTrip={editingTrip}
+        onSaved={(trip) => {
+          setCurrentTrip(trip);
+          setTripSetupOpen(false);
+          setEditingTrip(null);
+        }}
+        onDismiss={dismissTripSetup}
+      />
     </div>
   );
 }
