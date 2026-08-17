@@ -4,16 +4,40 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { stores } from "@/data/stores";
+import { products } from "@/data/products";
 import { Store } from "@/types";
 import { trackEvent, markSessionStart } from "@/lib/analytics";
 import StoreMap from "@/components/StoreMap";
 
-function StoreGridItem({ store, onClick }: { store: Store; onClick: () => void }) {
+/** 매장별 verified 상품 개수. 0개인 매장은 추천을 제공할 수 없으므로 UI에서 준비중으로 표시한다. */
+const verifiedCountByStore = products.reduce<Record<string, number>>((acc, p) => {
+  if (p.verificationStatus === "verified") {
+    acc[p.storeId] = (acc[p.storeId] || 0) + 1;
+  }
+  return acc;
+}, {});
+
+function StoreGridItem({
+  store,
+  onClick,
+}: {
+  store: Store;
+  onClick: () => void;
+}) {
+  const isReady = (verifiedCountByStore[store.id] || 0) > 0;
+
   return (
     <button
-      onClick={onClick}
-      className="flex flex-col items-center gap-1.5 rounded-2xl bg-surface-subtle p-3 text-center transition-all active:scale-95 active:bg-primary-50"
-      aria-label={`${store.nameKo} 선택`}
+      onClick={isReady ? onClick : undefined}
+      disabled={!isReady}
+      className={`relative flex flex-col items-center gap-1.5 rounded-2xl bg-surface-subtle p-3 text-center transition-all ${
+        isReady
+          ? "active:scale-95 active:bg-primary-50"
+          : "cursor-not-allowed opacity-50"
+      }`}
+      aria-label={
+        isReady ? `${store.nameKo} 선택` : `${store.nameKo} 준비 중`
+      }
     >
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1">
         <Image
@@ -27,7 +51,9 @@ function StoreGridItem({ store, onClick }: { store: Store; onClick: () => void }
       <p className="text-xs font-semibold text-text leading-tight">
         {store.nameKo.replace("세븐일레븐", "세븐").replace("패밀리마트", "패밀마")}
       </p>
-      <p className="text-[10px] text-text-tertiary">{store.typeLabel}</p>
+      <p className="text-[10px] text-text-tertiary">
+        {isReady ? store.typeLabel : "준비 중"}
+      </p>
     </button>
   );
 }
@@ -88,6 +114,9 @@ export default function HomePage() {
             />
           ))}
         </div>
+        <p className="mt-3 text-center text-xs text-text-tertiary">
+          &ldquo;준비 중&rdquo; 매장은 검증된 상품 데이터를 아직 확보하지 못해 추천을 제공하지 않습니다.
+        </p>
       </section>
 
       {/* Footer */}

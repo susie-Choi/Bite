@@ -6,7 +6,19 @@ import { Suspense } from "react";
 import Image from "next/image";
 import { trackEvent, getDecisionTimeMs } from "@/lib/analytics";
 import { getProductById } from "@/lib/recommendation";
+import {
+  getAvailabilityLabel,
+  getAvailabilityTone,
+  getVerificationLabel,
+  hasPlaceholderImageOnly,
+} from "@/lib/productTrust";
 import { CookingMethod, StoreId, SituationId } from "@/types";
+
+const TASTE_BASIS_LABEL: Record<string, string> = {
+  team_tasting: "팀이 직접 시식한 평가",
+  official_description: "공식 상품 설명 기반 요약",
+  review_research: "여러 리뷰를 조사한 요약",
+};
 
 function ProductDetailContent() {
   const router = useRouter();
@@ -46,6 +58,8 @@ function ProductDetailContent() {
     );
   }
 
+  const noPhotoYet = hasPlaceholderImageOnly(product);
+
   const handleChoiceClick = () => {
     trackEvent("choice_click", {
       product_id: product.id,
@@ -67,6 +81,10 @@ function ProductDetailContent() {
     router.push(
       `/product/${product.id}/complete?store=${storeId}&situation=${situationId}&rank=${rank}`
     );
+  };
+
+  const handlePackageMatchFeedback = (value: "matched" | "not_matched") => {
+    trackEvent("package_match_feedback", { product_id: product.id, value });
   };
 
   const cookingLabels: Record<CookingMethod, string> = {
@@ -91,34 +109,63 @@ function ProductDetailContent() {
         </button>
       </div>
 
-      {/* Product Image */}
+      {/* Product Image: 패키지 식별을 위해 object-contain, 잘리지 않게 여백 확보 */}
       <div className="relative aspect-square w-full bg-surface-subtle">
         <Image
           src={product.image}
-          alt={product.nameKo}
+          alt={`${product.nameKo} 패키지 정면`}
           fill
-          className="object-cover"
+          className="object-contain p-6"
           sizes="430px"
           priority
           onError={(e) => {
             (e.target as HTMLImageElement).src = "/images/placeholder.svg";
           }}
         />
+        {noPhotoYet && (
+          <div className="absolute inset-x-0 bottom-0 bg-black/60 px-4 py-2 text-center text-xs text-white">
+            실제 패키지 사진을 아직 확보하지 못했습니다. 매장에서는 아래 정보로 상품을 확인해주세요.
+          </div>
+        )}
       </div>
 
       {/* Product Info */}
       <div className="flex-1 px-5 pb-32 pt-5">
+        {/* Trust badges */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getAvailabilityTone(
+              product.availabilityScope
+            )}`}
+          >
+            {getAvailabilityLabel(product.availabilityScope)}
+          </span>
+          <span className="inline-flex items-center rounded-full bg-surface-subtle px-2.5 py-1 text-xs font-medium text-text-secondary ring-1 ring-black/5">
+            {getVerificationLabel(product.verificationStatus)}
+          </span>
+        </div>
+
         {/* Name & Price */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="mt-3 flex items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-text">{product.nameKo}</h1>
             <p className="mt-0.5 text-sm text-text-tertiary">
               {product.nameJa}
             </p>
+            {product.manufacturer && (
+              <p className="mt-0.5 text-xs text-text-tertiary">
+                제조·판매: {product.manufacturer}
+              </p>
+            )}
           </div>
           {product.priceYen && (
             <p className="text-xl font-bold text-primary-600">
               ¥{product.priceYen.toLocaleString()}
+              {product.taxIncluded && (
+                <span className="ml-1 text-xs font-normal text-text-tertiary">
+                  (세금 포함)
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -128,9 +175,23 @@ function ProductDetailContent() {
           {product.descriptionKo}
         </p>
 
+        {/* 매장에서 상품을 찾을 때 도움이 되는 식별 정보 */}
+        <div className="mt-4 rounded-2xl border border-dashed border-primary-200 bg-primary-50 p-4">
+          <p className="text-xs font-semibold text-primary-700">
+            매장에서 이 상품 찾을 때
+          </p>
+          <p className="mt-1.5 text-sm text-text">
+            일본어 정식 명칭 <span className="font-semibold">「{product.nameJa}」</span>을
+            진열대 라벨과 비교해 확인하세요. 사진이 준비되면 이 영역에 패키지 정면 사진이 표시됩니다.
+          </p>
+        </div>
+
         {/* Details */}
         <div className="mt-6 space-y-3 rounded-2xl bg-surface-subtle p-4">
-          <DetailRow label="맛 특징" value={product.tasteSummary} />
+          <DetailRow
+            label="맛 특징"
+            value={`${product.tasteSummary} (${TASTE_BASIS_LABEL[product.tasteBasis]})`}
+          />
           <DetailRow
             label="포만감"
             value={
@@ -159,12 +220,49 @@ function ProductDetailContent() {
           {product.allergyInfo && (
             <DetailRow label="알레르기" value={product.allergyInfo} />
           )}
+          <DetailRow
+            label="정보 확인일"
+            value={`${product.verifiedAt} 공식 사이트 기준`}
+          />
         </div>
+
+        {/* Source link */}
+        <a
+          href={product.sourceUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-block text-xs text-primary-600 underline"
+        >
+          공식 출처 페이지에서 확인하기 ↗
+        </a>
+
+        {/* Package match feedback */}
+        {!noPhotoYet && (
+          <div className="mt-4 rounded-xl bg-surface-subtle p-3">
+            <p className="text-xs font-medium text-text-secondary">
+              이 사진이 매장 진열대 상품과 일치했나요?
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                className="chip chip-inactive flex-1 justify-center"
+                onClick={() => handlePackageMatchFeedback("matched")}
+              >
+                맞았어요
+              </button>
+              <button
+                className="chip chip-inactive flex-1 justify-center"
+                onClick={() => handlePackageMatchFeedback("not_matched")}
+              >
+                달랐어요
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Mock notice */}
         {product.isMock && (
           <p className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-xs text-amber-700">
-            MVP 추천 데이터이며 실제 매장 가격·취급 여부와 다를 수 있습니다.
+            가격·판매 범위는 체인 공식 사이트 기준이며 이 지점의 실제 취급 여부와 다를 수 있습니다.
           </p>
         )}
       </div>

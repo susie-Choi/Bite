@@ -7,6 +7,7 @@ import Image from "next/image";
 import { trackEvent } from "@/lib/analytics";
 import { getRecommendations } from "@/lib/recommendation";
 import { situations } from "@/data/situations";
+import { getAvailabilityLabel, getAvailabilityTone, hasPlaceholderImageOnly } from "@/lib/productTrust";
 import {
   StoreId,
   SituationId,
@@ -27,6 +28,7 @@ function ProductCard({
     microwave: "전자레인지",
     hot_water: "뜨거운 물",
   };
+  const noPhotoYet = hasPlaceholderImageOnly(product);
 
   return (
     <button
@@ -34,18 +36,23 @@ function ProductCard({
       className="card flex w-full gap-3 text-left"
       aria-label={`${product.nameKo} 상세 보기`}
     >
-      {/* Image */}
+      {/* Image: 패키지 식별을 위해 object-contain 사용, 잘리지 않도록 */}
       <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-surface-subtle">
         <Image
           src={product.image}
-          alt={product.nameKo}
+          alt={`${product.nameKo} 패키지`}
           fill
-          className="object-cover"
+          className="object-contain p-2"
           sizes="96px"
           onError={(e) => {
             (e.target as HTMLImageElement).src = "/images/placeholder.svg";
           }}
         />
+        {noPhotoYet && (
+          <span className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-center text-[9px] text-white">
+            실제 사진 준비 중
+          </span>
+        )}
       </div>
 
       {/* Info */}
@@ -60,12 +67,17 @@ function ProductCard({
             </span>
           </div>
           <p className="mt-0.5 text-xs text-text-tertiary">{product.nameJa}</p>
+          {product.manufacturer && (
+            <p className="mt-0.5 text-[11px] text-text-tertiary">
+              {product.manufacturer}
+            </p>
+          )}
           <p className="mt-1 text-xs text-text-secondary line-clamp-1">
             {product.tasteSummary}
           </p>
         </div>
 
-        <div className="mt-2 flex items-center gap-3 text-xs text-text-secondary">
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
           {product.priceYen && (
             <span className="font-semibold text-primary-600">
               ¥{product.priceYen.toLocaleString()}
@@ -74,6 +86,13 @@ function ProductCard({
           <span>포만감 {"●".repeat(product.fullness)}{"○".repeat(5 - product.fullness)}</span>
           <span>{cookingLabel[product.cooking]}</span>
         </div>
+        <span
+          className={`mt-1.5 inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${getAvailabilityTone(
+            product.availabilityScope
+          )}`}
+        >
+          {getAvailabilityLabel(product.availabilityScope)}
+        </span>
       </div>
     </button>
   );
@@ -177,9 +196,10 @@ function RecommendationsContent() {
         ))}
       </div>
 
-      {/* Mock data notice */}
+      {/* Data trust notice */}
       <p className="mt-6 text-center text-xs text-text-tertiary">
-        MVP 추천 데이터이며 실제 매장 가격·취급 여부와 다를 수 있습니다.
+        가격·판매 범위는 체인 공식 사이트 기준이며 지점별 실제 취급 여부와 다를 수 있습니다.
+        상품 사진은 아직 실제 패키지 사진이 아닌 준비 중 상태입니다.
       </p>
     </div>
   );
