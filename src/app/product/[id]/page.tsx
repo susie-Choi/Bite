@@ -1,18 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
-import { Suspense } from "react";
 import Image from "next/image";
 import { trackEvent, getDecisionTimeMs } from "@/lib/analytics";
-import { getProductById } from "@/lib/recommendation";
+import { getCompanionProducts, getProductById } from "@/lib/recommendation";
 import {
   getAvailabilityLabel,
   getAvailabilityTone,
   getVerificationLabel,
   hasPlaceholderImageOnly,
 } from "@/lib/productTrust";
-import { CookingMethod, StoreId, SituationId } from "@/types";
+import { CookingMethod, Product, StoreId, SituationId } from "@/types";
 
 const TASTE_BASIS_LABEL: Record<string, string> = {
   team_tasting: "팀이 직접 시식한 평가",
@@ -28,8 +27,13 @@ function ProductDetailContent() {
   const storeId = (searchParams.get("store") || "life_namba") as StoreId;
   const situationId = (searchParams.get("situation") || "hearty_meal") as SituationId;
   const rank = parseInt(searchParams.get("rank") || "1");
+  const entrySource = searchParams.get("source") || "recommendation";
 
   const product = getProductById(productId);
+  const companionProducts = useMemo(
+    () => getCompanionProducts(productId, 2),
+    [productId]
+  );
   const [showChoice, setShowChoice] = useState(false);
 
   useEffect(() => {
@@ -39,9 +43,19 @@ function ProductDetailContent() {
         rank,
         store_id: storeId,
         situation_id: situationId,
+        entry_source: entrySource,
       });
     }
-  }, [product, rank, storeId, situationId]);
+  }, [product, rank, storeId, situationId, entrySource]);
+
+  useEffect(() => {
+    if (product && companionProducts.length > 0) {
+      trackEvent("companion_product_view", {
+        product_id: product.id,
+        result_count: companionProducts.length,
+      });
+    }
+  }, [product, companionProducts.length]);
 
   if (!product) {
     return (
@@ -59,6 +73,12 @@ function ProductDetailContent() {
   }
 
   const noPhotoYet = hasPlaceholderImageOnly(product);
+  const primaryImageKind = product.images[0]?.kind;
+  const productImageAlt = noPhotoYet
+    ? `${product.nameKo} 이미지 준비 중`
+    : primaryImageKind === "package_front"
+      ? `${product.nameKo} 패키지 정면`
+      : `${product.nameKo} 공식 상품 참고 이미지`;
 
   const handleChoiceClick = () => {
     trackEvent("choice_click", {
@@ -77,7 +97,6 @@ function ProductDetailContent() {
       rank,
     });
 
-    // Navigate to completion page
     router.push(
       `/product/${product.id}/complete?store=${storeId}&situation=${situationId}&rank=${rank}`
     );
@@ -85,6 +104,18 @@ function ProductDetailContent() {
 
   const handlePackageMatchFeedback = (value: "matched" | "not_matched") => {
     trackEvent("package_match_feedback", { product_id: product.id, value });
+  };
+
+  const handleCompanionClick = (companion: Product, position: number) => {
+    trackEvent("companion_product_click", {
+      source_product_id: product.id,
+      target_product_id: companion.id,
+      position,
+      store_id: companion.storeId,
+    });
+    router.push(
+      `/product/${companion.id}?store=${companion.storeId}&situation=${situationId}&rank=0&source=companion`
+    );
   };
 
   const cookingLabels: Record<CookingMethod, string> = {
@@ -103,7 +134,7 @@ function ProductDetailContent() {
           aria-label="뒤로 가기"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
           </svg>
           목록
         </button>
@@ -113,7 +144,7 @@ function ProductDetailContent() {
       <div className="relative aspect-square w-full bg-surface-subtle">
         <Image
           src={product.image}
-          alt={`${product.nameKo} 패키지 정면`}
+          alt={productImageAlt}
           fill
           className="object-contain p-6"
           sizes="430px"
@@ -124,7 +155,7 @@ function ProductDetailContent() {
         />
         {noPhotoYet && (
           <div className="absolute inset-x-0 bottom-0 bg-black/60 px-4 py-2 text-center text-xs text-white">
-            실제 패키지 사진을 아직 확보하지 못했습니다. 매장에서는 아래 정보로 상품을 확인해주세요.
+            실제 상품 사진을 아직 확보하지 못했습니다. 매장에서는 아래 정보로 상품을 확인해주세요.
           </div>
         )}
       </div>
@@ -182,7 +213,11 @@ function ProductDetailContent() {
           </p>
           <p className="mt-1.5 text-sm text-text">
             일본어 정식 명칭 <span className="font-semibold">「{product.nameJa}」</span>을
-            진열대 라벨과 비교해 확인하세요. 사진이 준비되면 이 영역에 패키지 정면 사진이 표시됩니다.
+            진열대 라벨과 비교하세요. {noPhotoYet
+              ? "사진을 확보하기 전까지 상품명과 제조사를 함께 확인해주세요."
+              : primaryImageKind === "package_front"
+                ? "위 사진의 포장 색상과 정면 라벨도 함께 확인하면 더 쉽게 찾을 수 있어요."
+                : "위 공식 이미지의 용기와 음식 구성을 함께 확인하면 더 쉽게 찾을 수 있어요."}
           </p>
         </div>
 
@@ -203,9 +238,7 @@ function ProductDetailContent() {
           {product.spicy > 0 && (
             <DetailRow
               label="매운맛"
-              value={
-                "🌶️".repeat(product.spicy) + ` (${product.spicy}/5)`
-              }
+              value={"🌶️".repeat(product.spicy) + ` (${product.spicy}/5)`}
             />
           )}
           <DetailRow label="조리" value={cookingLabels[product.cooking]} />
@@ -213,10 +246,7 @@ function ProductDetailContent() {
             label="휴대"
             value={product.portable ? "이동 중 섭취 가능" : "앉아서 먹기 권장"}
           />
-          <DetailRow
-            label="추천 상황"
-            value={product.tags.join(", ")}
-          />
+          <DetailRow label="추천 상황" value={product.tags.join(", ")} />
           {product.allergyInfo && (
             <DetailRow label="알레르기" value={product.allergyInfo} />
           )}
@@ -236,9 +266,55 @@ function ProductDetailContent() {
           공식 출처 페이지에서 확인하기 ↗
         </a>
 
+        {/* Companion products */}
+        {companionProducts.length > 0 && (
+          <section className="mt-7" aria-labelledby="companion-heading">
+            <h2 id="companion-heading" className="text-base font-bold text-text">
+              같이 고르기 좋은 상품
+            </h2>
+            <p className="mt-1 text-xs text-text-tertiary">
+              같은 매장에서 함께 확인할 수 있는 검증 상품이에요.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              {companionProducts.map((companion, index) => (
+                <button
+                  key={companion.id}
+                  type="button"
+                  onClick={() => handleCompanionClick(companion, index + 1)}
+                  className="flex items-center gap-3 rounded-2xl border border-stone-200 p-3 text-left transition-colors active:bg-surface-subtle"
+                >
+                  <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-xl bg-surface-subtle">
+                    <Image
+                      src={companion.image}
+                      alt={companion.nameKo}
+                      fill
+                      sizes="64px"
+                      className="object-contain p-1"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-text">
+                      {companion.nameKo}
+                    </p>
+                    <p className="mt-0.5 text-xs text-text-tertiary">
+                      {companion.category}
+                    </p>
+                    {companion.priceYen && (
+                      <p className="mt-1 text-sm font-semibold text-primary-600">
+                        ¥{companion.priceYen.toLocaleString()}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-text-tertiary" aria-hidden="true">›</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Package match feedback */}
         {!noPhotoYet && (
-          <div className="mt-4 rounded-xl bg-surface-subtle p-3">
+          <div className="mt-5 rounded-xl bg-surface-subtle p-3">
             <p className="text-xs font-medium text-text-secondary">
               이 사진이 매장 진열대 상품과 일치했나요?
             </p>

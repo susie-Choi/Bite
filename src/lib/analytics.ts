@@ -53,3 +53,53 @@ export function getDecisionTimeMs(): number | undefined {
 export function getGAMeasurementId(): string | undefined {
   return process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || undefined;
 }
+
+
+const VISIT_STORAGE_KEY = "travel_meal_visit";
+const SESSION_VISIT_KEY = "travel_meal_visit_tracked";
+
+interface StoredVisit {
+  count: number;
+  lastVisitedAt: number;
+}
+
+/**
+ * 로그인 없이 브라우저 단위 재방문 여부를 측정한다.
+ * 같은 탭 세션에서 홈으로 여러 번 돌아와도 방문 수를 중복 증가시키지 않는다.
+ */
+export function trackVisit() {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (window.sessionStorage.getItem(SESSION_VISIT_KEY)) return;
+
+    const now = Date.now();
+    const storedValue = window.localStorage.getItem(VISIT_STORAGE_KEY);
+    const previous = storedValue
+      ? (JSON.parse(storedValue) as StoredVisit)
+      : null;
+    const visitCount = (previous?.count ?? 0) + 1;
+    const daysSinceLastVisit = previous
+      ? Math.floor((now - previous.lastVisitedAt) / 86_400_000)
+      : 0;
+
+    trackEvent("visit_start", {
+      returning_user: visitCount > 1,
+      visit_count: visitCount,
+      days_since_last_visit: daysSinceLastVisit,
+      storage_available: true,
+    });
+
+    window.localStorage.setItem(
+      VISIT_STORAGE_KEY,
+      JSON.stringify({ count: visitCount, lastVisitedAt: now })
+    );
+    window.sessionStorage.setItem(SESSION_VISIT_KEY, "true");
+  } catch {
+    trackEvent("visit_start", {
+      returning_user: false,
+      visit_count: 1,
+      storage_available: false,
+    });
+  }
+}

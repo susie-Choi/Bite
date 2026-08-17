@@ -199,7 +199,7 @@ function RecommendationsContent() {
       {/* Data trust notice */}
       <p className="mt-6 text-center text-xs text-text-tertiary">
         가격·판매 범위는 체인 공식 사이트 기준이며 지점별 실제 취급 여부와 다를 수 있습니다.
-        상품 사진은 아직 실제 패키지 사진이 아닌 준비 중 상태입니다.
+        상품 이미지는 식별 참고용이며 공개 사용 권리는 검토 중입니다.
       </p>
     </div>
   );

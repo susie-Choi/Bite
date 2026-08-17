@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import GAScript from "@/components/GAScript";
+import WebVitalsReporter from "@/components/WebVitalsReporter";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,8 +17,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: "#FFFFFF",
 };
 
@@ -38,6 +37,7 @@ export default function RootLayout({
       </head>
       <body className="bg-surface-muted">
         <GAScript />
+        <WebVitalsReporter />
         <main className="mx-auto min-h-dvh max-w-mobile bg-white">
           {children}
         </main>

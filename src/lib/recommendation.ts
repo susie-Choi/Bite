@@ -140,3 +140,45 @@ export function getRecommendations(
 export function getProductById(productId: string): Product | undefined {
   return products.find((p) => p.id === productId);
 }
+
+/**
+ * 현재 상품과 같은 매장에서 함께 살펴볼 verified 상품을 반환한다.
+ * 구매 이력 기반 표현은 사용하지 않고, 카테고리 다양성과 상황 태그 중첩만 활용한다.
+ */
+export function getCompanionProducts(
+  productId: string,
+  limit = 2
+): Product[] {
+  const currentProduct = getProductById(productId);
+  if (!currentProduct || limit <= 0) return [];
+
+  return products
+    .filter(
+      (product) =>
+        product.id !== currentProduct.id &&
+        product.storeId === currentProduct.storeId &&
+        product.verificationStatus === "verified"
+    )
+    .map((product) => {
+      const sharedSituations = product.situations.filter((situation) =>
+        currentProduct.situations.includes(situation)
+      ).length;
+      const categoryVariety = product.category !== currentProduct.category ? 4 : 0;
+
+      return {
+        product,
+        score: categoryVariety + sharedSituations * 2,
+      };
+    })
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+
+      const aPrice = a.product.priceYen ?? Number.POSITIVE_INFINITY;
+      const bPrice = b.product.priceYen ?? Number.POSITIVE_INFINITY;
+      if (aPrice !== bPrice) return aPrice - bPrice;
+
+      return a.product.id.localeCompare(b.product.id);
+    })
+    .slice(0, limit)
+    .map(({ product }) => product);
+}

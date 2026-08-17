@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { stores } from "@/data/stores";
 import { products } from "@/data/products";
 import { Store } from "@/types";
-import { trackEvent, markSessionStart } from "@/lib/analytics";
+import { trackEvent, markSessionStart, trackVisit } from "@/lib/analytics";
+import { formatDistance, GeoPoint, getDistanceMeters } from "@/lib/geo";
 import StoreMap from "@/components/StoreMap";
 
 /** 검증된 상품을 하나 이상 보유해 실제 추천을 제공할 수 있는 매장만 홈에 노출한다. */
@@ -18,50 +19,190 @@ const availableStoreIds = new Set(
 
 const availableStores = stores.filter((store) => availableStoreIds.has(store.id));
 
-function StoreGridItem({
+type LocationStatus = "idle" | "loading" | "success" | "error";
+
+function getDistanceBucket(distanceMeters: number): string {
+  if (distanceMeters < 1_000) return "under_1km";
+  if (distanceMeters < 5_000) return "1_to_5km";
+  if (distanceMeters < 50_000) return "5_to_50km";
+  return "over_50km";
+}
+
+function getStoreMapsUrl(store: Store): string {
+  const query = encodeURIComponent(
+    `${store.nameEn}, ${store.lat},${store.lng}`
+  );
+  return `https://www.google.com/maps/search/?api=1&query=${query}`;
+}
+
+function StoreListItem({
   store,
-  onClick,
+  distanceMeters,
+  onSelect,
 }: {
   store: Store;
-  onClick: () => void;
+  distanceMeters?: number;
+  onSelect: () => void;
 }) {
+  const mapsUrl = getStoreMapsUrl(store);
+
   return (
-    <button
-      onClick={onClick}
-      className="relative flex flex-col items-center gap-1.5 rounded-2xl bg-surface-subtle p-3 text-center transition-all active:scale-95 active:bg-primary-50"
-      aria-label={`${store.nameKo} 선택`}
-    >
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white p-1">
-        <Image
-          src={store.image}
-          alt={store.nameKo}
-          width={36}
-          height={36}
-          className="object-contain"
-        />
+    <article className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+      <button
+        onClick={onSelect}
+        className="flex w-full items-center gap-3 p-3 text-left transition-colors active:bg-primary-50"
+        aria-label={`${store.nameKo} 선택`}
+      >
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-surface-subtle p-1.5">
+          <Image
+            src={store.image}
+            alt=""
+            width={42}
+            height={42}
+            className="h-full w-full object-contain"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold text-text">{store.nameKo}</p>
+            <span className="flex-shrink-0 rounded-full bg-surface-subtle px-2 py-0.5 text-[10px] text-text-tertiary">
+              {store.typeLabel}
+            </span>
+          </div>
+          <p className="mt-1 truncate text-xs text-text-secondary">{store.address}</p>
+          {distanceMeters !== undefined && (
+            <p className="mt-1 text-xs font-medium text-primary-600">
+              현재 위치에서 {formatDistance(distanceMeters)}
+            </p>
+          )}
+        </div>
+        <svg
+          className="h-5 w-5 flex-shrink-0 text-text-tertiary"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
+      <div className="flex items-center justify-between border-t border-stone-100 px-3 py-2">
+        <span className="text-[11px] text-text-tertiary">영업시간은 최신 지도 정보 기준</span>
+        <a
+          href={mapsUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() =>
+            trackEvent("store_info_click", {
+              store_id: store.id,
+              destination: "google_maps",
+            })
+          }
+          className="text-xs font-medium text-primary-600 underline"
+        >
+          영업시간·길찾기 ↗
+        </a>
       </div>
-      <p className="text-xs font-semibold leading-tight text-text">
-        {store.nameKo.replace("세븐일레븐", "세븐").replace("패밀리마트", "패밀마")}
-      </p>
-      <p className="text-[10px] text-text-tertiary">{store.typeLabel}</p>
-    </button>
+    </article>
   );
 }
 
 export default function HomePage() {
   const router = useRouter();
+  const [userLocation, setUserLocation] = useState<GeoPoint | null>(null);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>("idle");
+  const [locationMessage, setLocationMessage] = useState("");
 
   useEffect(() => {
     markSessionStart();
+    trackVisit();
     trackEvent("home_view", { source: "direct" });
   }, []);
 
-  const handleStoreSelect = (store: Store) => {
+  const storesWithDistance = useMemo(() => {
+    const withDistance = availableStores.map((store) => ({
+      store,
+      distanceMeters: userLocation
+        ? getDistanceMeters(userLocation, { lat: store.lat, lng: store.lng })
+        : undefined,
+    }));
+
+    if (!userLocation) return withDistance;
+
+    return withDistance.sort(
+      (a, b) => (a.distanceMeters ?? 0) - (b.distanceMeters ?? 0)
+    );
+  }, [userLocation]);
+
+  const handleStoreSelect = (store: Store, source: "map" | "list") => {
     trackEvent("store_select", {
       store_id: store.id,
       store_type: store.type,
+      source,
     });
     router.push(`/situation?store=${store.id}`);
+  };
+
+  const handleNearbySearch = () => {
+    trackEvent("nearby_search_click");
+
+    if (!("geolocation" in navigator)) {
+      setLocationStatus("error");
+      setLocationMessage("이 브라우저에서는 현재 위치를 확인할 수 없어요.");
+      trackEvent("nearby_search_error", { reason: "unsupported" });
+      return;
+    }
+
+    setLocationStatus("loading");
+    setLocationMessage("현재 위치를 확인하고 있어요...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const nextLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        const nearest = availableStores
+          .map((store) => ({
+            store,
+            distance: getDistanceMeters(nextLocation, {
+              lat: store.lat,
+              lng: store.lng,
+            }),
+          }))
+          .sort((a, b) => a.distance - b.distance)[0];
+
+        setUserLocation(nextLocation);
+        setLocationStatus("success");
+        setLocationMessage(
+          nearest.distance <= 50_000
+            ? `${nearest.store.nameKo}이(가) 가장 가까워요. GPS 직선거리 기준입니다.`
+            : "현재 위치와 오사카 매장이 멀리 있어요. 표시된 거리는 참고용입니다."
+        );
+        trackEvent("nearby_search_result", {
+          nearest_store_id: nearest.store.id,
+          nearest_distance_bucket: getDistanceBucket(nearest.distance),
+        });
+      },
+      (error) => {
+        const reason =
+          error.code === error.PERMISSION_DENIED
+            ? "permission_denied"
+            : error.code === error.TIMEOUT
+              ? "timeout"
+              : "unavailable";
+        const message =
+          error.code === error.PERMISSION_DENIED
+            ? "위치 권한을 허용하면 가까운 매장을 확인할 수 있어요."
+            : "현재 위치를 불러오지 못했어요. 잠시 후 다시 시도해주세요.";
+
+        setLocationStatus("error");
+        setLocationMessage(message);
+        trackEvent("nearby_search_error", { reason });
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 300_000 }
+    );
   };
 
   return (
@@ -92,15 +233,60 @@ export default function HomePage() {
           매장 선택
         </h2>
 
-        <StoreMap stores={availableStores} onStoreSelect={handleStoreSelect} />
+        <StoreMap
+          stores={availableStores}
+          onStoreSelect={(store) => handleStoreSelect(store, "map")}
+          userLocation={userLocation}
+        />
 
-        {/* Store Grid - 3 columns */}
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {availableStores.map((store) => (
-            <StoreGridItem
+        <button
+          type="button"
+          onClick={handleNearbySearch}
+          disabled={locationStatus === "loading"}
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-semibold text-primary-700 transition-colors active:bg-primary-100 disabled:opacity-60"
+        >
+          <svg
+            className="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path strokeLinecap="round" d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+          </svg>
+          {locationStatus === "loading"
+            ? "현재 위치 확인 중..."
+            : userLocation
+              ? "현재 위치 기준 가까운 순"
+              : "내 주변 매장 찾기"}
+        </button>
+
+        {!locationMessage && (
+          <p className="mt-2 px-1 text-xs text-text-tertiary">
+            위치는 가까운 순 계산과 지도 표시에만 사용하며 여행한끼 서버에 저장하지 않아요.
+          </p>
+        )}
+
+        {locationMessage && (
+          <p
+            className={`mt-2 px-1 text-xs ${
+              locationStatus === "error" ? "text-red-600" : "text-text-secondary"
+            }`}
+            role="status"
+          >
+            {locationMessage}
+          </p>
+        )}
+
+        <div className="mt-4 flex flex-col gap-3">
+          {storesWithDistance.map(({ store, distanceMeters }) => (
+            <StoreListItem
               key={store.id}
               store={store}
-              onClick={() => handleStoreSelect(store)}
+              distanceMeters={distanceMeters}
+              onSelect={() => handleStoreSelect(store, "list")}
             />
           ))}
         </div>

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
-import { Suspense } from "react";
 import { trackEvent } from "@/lib/analytics";
 import { getProductById } from "@/lib/recommendation";
 import { StoreId, SituationId } from "@/types";
@@ -18,6 +17,8 @@ function CompleteContent() {
   const product = getProductById(productId);
   const [stockClicked, setStockClicked] = useState(false);
   const [showFakeDoor, setShowFakeDoor] = useState(false);
+  const [npsScore, setNpsScore] = useState<number | null>(null);
+  const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
     trackEvent("choice_complete_view", {
@@ -40,6 +41,84 @@ function CompleteContent() {
     });
   };
 
+  const handleNpsSubmit = (score: number) => {
+    if (npsScore !== null) return;
+
+    const segment = score >= 9 ? "promoter" : score >= 7 ? "passive" : "detractor";
+    setNpsScore(score);
+    trackEvent("nps_submit", {
+      score,
+      segment,
+      product_id: productId,
+      store_id: storeId,
+    });
+  };
+
+  const copyShareUrl = async (url: string) => {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      return;
+    }
+
+    const textArea = document.createElement("textarea");
+    textArea.value = url;
+    textArea.style.position = "fixed";
+    textArea.style.opacity = "0";
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand("copy");
+    document.body.removeChild(textArea);
+  };
+
+  const handleShare = async () => {
+    if (!product) return;
+
+    const url = `${window.location.origin}/product/${product.id}?store=${storeId}&situation=${situationId}&rank=0&source=share`;
+    const shareData = {
+      title: `여행한끼 추천 · ${product.nameKo}`,
+      text: `일본에서 ${product.nameKo} 어때요? 여행한끼에서 상품 정보를 확인해보세요.`,
+      url,
+    };
+
+    trackEvent("share_click", {
+      product_id: product.id,
+      native_share_available: typeof navigator.share === "function",
+    });
+
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share(shareData);
+        setShareMessage("공유했어요!");
+        trackEvent("share_complete", {
+          product_id: product.id,
+          method: "native",
+          success: true,
+        });
+        return;
+      }
+
+      await copyShareUrl(url);
+      setShareMessage("상품 링크를 복사했어요.");
+      trackEvent("share_complete", {
+        product_id: product.id,
+        method: "clipboard",
+        success: true,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setShareMessage("");
+        return;
+      }
+
+      setShareMessage("공유하지 못했어요. 잠시 후 다시 시도해주세요.");
+      trackEvent("share_complete", {
+        product_id: product.id,
+        method: "unknown",
+        success: false,
+      });
+    }
+  };
+
   if (!product) {
     return (
       <div className="page-container flex flex-col items-center justify-center pt-20 text-center">
@@ -56,7 +135,7 @@ function CompleteContent() {
   }
 
   return (
-    <div className="page-container flex flex-col items-center pt-16 text-center">
+    <div className="page-container flex flex-col items-center pb-10 pt-16 text-center">
       {/* Success */}
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
         <span className="text-4xl">✓</span>
@@ -95,7 +174,6 @@ function CompleteContent() {
             이 기능이 필요하시다면, 여러분의 클릭이 개발 우선순위를 높여줍니다!
           </p>
 
-          {/* Optional quick feedback */}
           <div className="mt-5 space-y-2">
             <p className="text-xs font-medium text-text-tertiary">
               이 기능에 대해 어떻게 생각하세요?
@@ -103,17 +181,13 @@ function CompleteContent() {
             <div className="flex gap-2">
               <button
                 className="chip chip-inactive flex-1 justify-center"
-                onClick={() =>
-                  trackEvent("stock_feedback", { value: "want" })
-                }
+                onClick={() => trackEvent("stock_feedback", { value: "want" })}
               >
                 생기면 꼭 쓸래요
               </button>
               <button
                 className="chip chip-inactive flex-1 justify-center"
-                onClick={() =>
-                  trackEvent("stock_feedback", { value: "enough" })
-                }
+                onClick={() => trackEvent("stock_feedback", { value: "enough" })}
               >
                 추천만으로 충분해요
               </button>
@@ -122,8 +196,52 @@ function CompleteContent() {
         </div>
       )}
 
+      {/* NPS */}
+      <section className="mt-6 w-full rounded-2xl border border-stone-200 p-5" aria-labelledby="nps-heading">
+        <h2 id="nps-heading" className="text-sm font-semibold text-text">
+          여행한끼를 지인에게 추천할 가능성은?
+        </h2>
+        {npsScore === null ? (
+          <>
+            <div className="mt-4 grid grid-cols-6 gap-2">
+              {Array.from({ length: 11 }, (_, score) => (
+                <button
+                  key={score}
+                  type="button"
+                  onClick={() => handleNpsSubmit(score)}
+                  className="flex h-11 items-center justify-center rounded-lg bg-surface-subtle text-xs font-semibold text-text transition-colors active:bg-primary-100"
+                  aria-label={`추천 의향 ${score}점`}
+                >
+                  {score}
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 flex justify-between text-[10px] text-text-tertiary">
+              <span>0 전혀 추천 안 함</span>
+              <span>10 매우 추천</span>
+            </div>
+          </>
+        ) : (
+          <p className="mt-3 text-sm text-primary-700">
+            {npsScore}점으로 응답해주셔서 감사합니다.
+          </p>
+        )}
+      </section>
+
+      {/* Share */}
+      <div className="mt-4 w-full">
+        <button type="button" onClick={handleShare} className="btn-secondary">
+          이 상품 친구에게 공유하기
+        </button>
+        {shareMessage && (
+          <p className="mt-2 text-xs text-text-secondary" role="status">
+            {shareMessage}
+          </p>
+        )}
+      </div>
+
       {/* Actions */}
-      <div className="mt-10 flex w-full flex-col gap-3">
+      <div className="mt-8 flex w-full flex-col gap-3">
         <button
           onClick={() => router.push(`/recommendations?store=${storeId}&situation=${situationId}`)}
           className="btn-secondary"

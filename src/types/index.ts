@@ -146,7 +146,20 @@ export type AnalyticsEvent =
   | "stock_check_click"
   | "stock_fake_door_view"
   | "stock_feedback"
-  | "package_match_feedback";
+  | "package_match_feedback"
+  | "visit_start"
+  | "nearby_search_click"
+  | "nearby_search_result"
+  | "nearby_search_error"
+  | "store_info_click"
+  | "companion_product_view"
+  | "companion_product_click"
+  | "nps_submit"
+  | "share_click"
+  | "share_complete"
+  | "web_vital"
+  | "app_error"
+  | "error_retry";
 
 export type AnalyticsParams = Record<
   string,
