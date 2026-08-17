@@ -66,7 +66,12 @@ export type AvailabilityScope = "chain_catalog" | "regional" | "store_observed";
 export type VerificationStatus = "verified" | "needs_review" | "retired";
 
 /** 이미지가 실제 패키지 사진인지, 아직 자리표시자인지 구분한다. */
-export type ImageKind = "package_front" | "shelf" | "back_label" | "placeholder";
+export type ImageKind =
+  | "package_front"
+  | "product_reference"
+  | "shelf"
+  | "back_label"
+  | "placeholder";
 
 export interface ProductImage {
   kind: ImageKind;

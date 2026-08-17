@@ -17,10 +17,15 @@
 
 ## 2. 현재 상태 (2026-08-17 기준)
 
-- Lawson, 7-Eleven, FamilyMart: 각 체인 공식 사이트에서 확인한 실재 SKU 8개씩 등록. `verificationStatus: "verified"`.
-- LIFE: 지점별 전단 상품이라 공식 사이트에 개별 SKU 페이지가 없음. PB 브랜드(BIO-RAL) 및 대표 카테고리 수준만 등록했고 `verificationStatus: "needs_review"`로 표시. **추천에는 노출되지 않는다.**
-- 모든 상품의 이미지는 `images: [{ kind: "placeholder", rights: "pending_review" }]` 상태다. 실제 패키지 사진은 아직 한 장도 없다.
-- `lawson_t_001`, `lawson_t_002`, `seven_u_001`은 공식 사이트에 "간사이/오사카에서는 취급하지 않음" 또는 "홋카이도 판매"로 명시되어 있어 오사카 지점 판매 여부가 불확실하므로 `needs_review`로 낮췄다.
+- **실제 공식 개별 페이지까지 재검증된 상품:** 17개 레코드 / 고유 SKU 14개
+  - Lawson: verified 6개
+  - 7-Eleven: verified 7개(두 지점 중복 SKU를 제외하면 고유 SKU 4개)
+  - FamilyMart: verified 4개
+- **LIFE:** 지점별 전단 상품이라 공식 사이트에 개별 SKU 페이지가 없다. 현재 6개 후보는 `needs_review`이며 추천에 노출되지 않는다.
+- **지역 불일치 후보:** `lawson_t_001`, `lawson_t_002`, `seven_u_001`은 오사카/간사이 취급 근거가 없어 `needs_review`다.
+- verified 상품의 고유 이미지 14개를 `public/images/products/`에 저장하고 17개 Product 레코드에 연결했다. Seven의 동일 SKU는 같은 로컬 파일을 재사용한다. 기존 일반 음식 이미지는 `public/images/products_bck/`에 보존했다.
+- 상품별 한국어명·일본어명·개별 상품 페이지·직접 이미지 후보·저장 파일명은 [`PRODUCT_IMAGE_CHECKLIST.md`](./PRODUCT_IMAGE_CHECKLIST.md)를 따른다.
+- 로컬 에셋으로 연결했지만 공식 이미지 후보를 내려받았다는 이유만으로 `rights`를 `cleared_official`로 바꾸지 않았다. 현재 `pending_review`이며 공개 배포 권리를 별도로 확인해야 한다.
 
 ## 3. 새 상품을 추가하는 절차
 
