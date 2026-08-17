@@ -27,6 +27,11 @@ function calculateScore(
 ): number {
   let score = 0;
 
+  // 검증되지 않은 상품(needs_review/retired)은 추천 대상에서 제외
+  if (product.verificationStatus !== "verified") {
+    return -1;
+  }
+
   // 매장 매칭 (필수 조건이지만 점수도 부여)
   if (product.storeId === storeId) {
     score += 10;
