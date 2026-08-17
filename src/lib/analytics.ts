@@ -2,15 +2,14 @@ import { AnalyticsEvent, AnalyticsParams } from "@/types";
 
 declare global {
   interface Window {
-    gtag?: (...args: unknown[]) => void;
     dataLayer?: unknown[];
   }
 }
 
 /**
- * GA4 이벤트를 전송합니다.
- * - GA ID가 없거나 gtag가 로드되지 않아도 에러를 발생시키지 않습니다.
- * - 개발 환경에서는 콘솔에 이벤트를 출력합니다.
+ * Google Tag Manager의 dataLayer로 분석 이벤트를 전송합니다.
+ * - GTM이 로드되지 않았거나 차단되어도 에러를 발생시키지 않습니다.
+ * - 개발 환경에서는 콘솔에도 이벤트를 출력합니다.
  */
 export function trackEvent(
   eventName: AnalyticsEvent | string,
@@ -18,10 +17,8 @@ export function trackEvent(
 ) {
   if (typeof window === "undefined") return;
 
-  // GA4 전송
-  if (typeof window.gtag === "function") {
-    window.gtag("event", eventName, params);
-  }
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: eventName, ...params });
 
   // 개발 환경 디버깅
   if (process.env.NODE_ENV === "development") {
@@ -46,14 +43,6 @@ export function getDecisionTimeMs(): number | undefined {
   if (sessionStartTime === null) return undefined;
   return Date.now() - sessionStartTime;
 }
-
-/**
- * GA4 Measurement ID
- */
-export function getGAMeasurementId(): string | undefined {
-  return process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || undefined;
-}
-
 
 const VISIT_STORAGE_KEY = "travel_meal_visit";
 const SESSION_VISIT_KEY = "travel_meal_visit_tracked";

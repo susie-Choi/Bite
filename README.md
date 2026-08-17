@@ -529,7 +529,7 @@ GA4를 연결해 최소한 다음 데이터를 수집한다.
 
 ## 11.3 Analytics Wrapper
 
-컴포넌트마다 직접 `gtag()`를 호출하지 말고 공통 함수를 만든다.
+컴포넌트마다 직접 분석 코드를 호출하지 말고 공통 함수에서 GTM `dataLayer`로 이벤트를 전달한다.
 
 예시:
 
@@ -540,9 +540,8 @@ export function trackEvent(
 ) {
   if (typeof window === "undefined") return;
 
-  if (typeof window.gtag === "function") {
-    window.gtag("event", eventName, params);
-  }
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: eventName, ...params });
 
   if (process.env.NODE_ENV === "development") {
     console.info("[analytics]", eventName, params);
@@ -550,13 +549,7 @@ export function trackEvent(
 }
 ```
 
-GA ID가 없을 때도 앱은 에러 없이 동작해야 한다.
-
-환경 변수 예시:
-
-```bash
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
-```
+GTM 컨테이너 `GTM-MF3GJX4J`는 루트 레이아웃에서 로드한다. GTM이 차단되거나 로드되지 않아도 앱은 정상 동작해야 한다.
 
 ## 11.4 KPI 정의
 
@@ -1003,10 +996,10 @@ npm install
 cp .env.example .env.local
 ```
 
-`.env.local` 파일에 GA4 Measurement ID를 입력하세요. 없어도 앱은 정상 동작합니다.
+GTM 컨테이너는 앱에 직접 설정되어 있으므로 별도의 GA4 Measurement ID 환경 변수는 필요하지 않습니다. Google Maps를 사용하려면 `.env.local`에 다음 값을 설정하세요.
 
 ```env
-NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 ```
 
 ## 개발 서버 실행
@@ -1034,7 +1027,6 @@ npx vercel
 ```
 
 또는 GitHub 연동 후 Vercel 대시보드에서 Import 하면 자동 배포됩니다.
-환경 변수 `NEXT_PUBLIC_GA_MEASUREMENT_ID`를 Vercel 프로젝트 설정에서 추가하세요.
 
 ## 프로젝트 구조
 

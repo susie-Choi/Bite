@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import GAScript from "@/components/GAScript";
+import Script from "next/script";
 import WebVitalsReporter from "@/components/WebVitalsReporter";
 import "./globals.css";
+
+const GTM_ID = "GTM-MF3GJX4J";
 
 export const metadata: Metadata = {
   title: "여행한끼 – 여행지 마트에서, 오늘 뭐 먹지?",
@@ -28,6 +30,17 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <head>
+        {/* Google Tag Manager */}
+        <Script id="google-tag-manager" strategy="beforeInteractive">
+          {`
+            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+            j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+            'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+            })(window,document,'script','dataLayer','${GTM_ID}');
+          `}
+        </Script>
+        {/* End Google Tag Manager */}
         <link
           rel="stylesheet"
           as="style"
@@ -36,7 +49,17 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-surface-muted">
-        <GAScript />
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+            title="Google Tag Manager"
+          />
+        </noscript>
+        {/* End Google Tag Manager (noscript) */}
         <WebVitalsReporter />
         <main className="mx-auto min-h-dvh max-w-mobile bg-white">
           {children}
